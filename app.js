@@ -1,157 +1,132 @@
-export default function appScr(
-  express,
-  bodyParser,
-  fs,
-  crypto,
-  http,
-  CORS,
-  User,
-  mongoose,
-  puppeteer
-) {
-  const app = express();
-  const headersHTML = { "Content-Type": "text/html; charset=utf-8", ...CORS };
-  const headersAll = {
-    "Content-Type": "text/html; charset=utf-8",
-    "X-Author": "itmo224658",
-    ...CORS,
-  };
-  const headersTEXT = { "Content-Type": "text/plain", ...CORS };
-  const headersJSON = { "Content-Type": "application/json", ...CORS };
-  const headersCORS = { ...CORS };
-  const wp = {
-    id: 1,
-    title: {
-      rendered: login,
-    },
-  };
-  const login = 'itmo224658';
-  app
-    .use(bodyParser.urlencoded({ extended: true }))
+export default function(express, bodyParser, createReadStream, crypto, http, m, UserSchema, writeFileSync, puppeteer) {
+    const app = express();
+    const CORS = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,OPTIONS,DELETE',
+      'Access-Control-Allow-Headers': 'Content-Type, Access-Control-Allow-Headers, Accept'
+    };
+    const login = 'itmo224658';
+    const User = m.model('User', UserSchema);
+    const headersText = {
+        'Content-Type': 'text/plain; charset=UTF-8',
+        'Access-Control-Allow-Origin': '*',
+        'X-Author': login,
+        ...CORS,
+    };
+    
+    app
+    .all('/login/', (req, res) => {
+        res.set(CORS);
+        res.send(login);
+        })
+    
+    .all('/code/', (req, res) => {
+        res.set(CORS);
+        const path = import.meta.url.substring(7);
+        createReadStream(path).pipe(res);
+        })
+    .all('/sha1/:input/', (req, res) => {
+        res.set(CORS);
+        const hash_sha1 = crypto.createHash('sha1')
+        .update(req.params.input)
+        .digest('hex')
+        res.send(hash_sha1);
+        })
+    
+    .use(bodyParser.urlencoded({extended: true}))
+    
+    .all('/req/', (req, res) => {
+        res.set(CORS);
+        if (req.method === "GET" || req.method === "POST") {
+            const address = req.method === "GET" ? req.query.addr : req.body.addr;
+            if (address) {
+               http.get(address, (resp) => {
+                let data = '';
+                resp.on('data', (chunk) => { data += chunk; });
+                  resp.on('end', () => {
+                      res.send(data);
+                  });
+                }) 
+            }
+            else {
+                res.send(login);
+            }
+        }
+        else {
+            res.send(login);
+        }
+        })
+    .post('/insert/', async (req, res) => {
+        const { URL, login, password } = req.body;
+        try {
+          await m.connect(URL, { useNewUrlParser: true, useUnifiedTopology: true });
+        } catch (e) {
+          res.send(e.stack);   
+        }
+
+        const newUser = new User({ login, password });
+        await newUser.save();
+        res.status(201).json({ successsss: true, login });
+    })
+    .all('/wordpress/', (r) => {
+        r.res.set(CORS).send({
+            id: 1,
+            title: {
+                rendered: login
+            }
+        })
+    })
+    .all('/wordpress/wp-json/wp/v2/posts/1', (r) => {
+        r.res.set(CORS).send({
+            id: 1,
+            title: {
+                rendered: login
+            }
+        })
+    })
     .use(bodyParser.json())
+    .all('/render/', async (req, res) => {
+        res.set(CORS);
+        res.set(headersText);
+        const { addr } = req.query;
+        const { random2, random3 } = req.body;
+        const r2 = req.body.random2;
+        
+        
+        console.log(random2);
 
-    .all("/sample/", (r) => {
-      r.res.set(headersTEXT).send("function task(x) { return x*this*this; }");
-    })
-    .all("/fetch/", (r) => {
-      r.res.set(headersHTML).render("fetch");
-    })
-    .all("/promise/", (r) => {
-      r.res
-        .set(headersTEXT)
-        .send(
-          "function task(x){return new Promise((res,rej) => x<18 ? res('yes') : rej('no'))}"
-        );
-    })
-    .all("/result4/", (r) => {
-      const result = {
-        message: login,
-        "x-result": r.headers["x-test"],
-      };
-      let body = "";
+        http.get(addr, (r, body = '') => {
+          r.on('data', (data) => (body += data)).on('end', () => {
+            writeFileSync('views/render.pug', body);
+            res.render('render', { login: login, random2, random3 });
+          });
+        });
+      })
+    .all('/test/', async (req, res) => {
+        res.set(headersText);
+        const { URL } = req.query;
 
-      r.on("data", (data) => (body += data)).on("end", () => {
-        result["x-body"] = body;
-        r.res
-          .writeHead(200, { ...CORS, "Content-Type": "application/json" })
-          .end(JSON.stringify(result));
-      });
-    })
-    .all("/login/", (r) => {
-      r.res.set(headersTEXT).send(login);
-    })
-    .all("/code/", (r) => {
-      r.res.set(headersTEXT);
-      fs.readFile(import.meta.url.substring(7), (err, data) => {
-        if (err) throw err;
-        r.res.end(data);
-      });
-    })
-    .all("/sha1/:input/", (r) => {
-      let shasum = crypto.createHash("sha1");
-      r.res
-        .set(headersTEXT)
-        .send(shasum.update(req.params.input).digest("hex"));
-    })
-    .get("/req/", (r) => {
-      r.res.set(headersTEXT);
-      let data = "";
-      http.get(req.query.addr, async function (response) {
-        await response
-          .on("data", function (chunk) {
-            data += chunk;
-          })
-          .on("end", () => {});
-        r.res.send(data);
-      });
-    })
-    .post("/req/", (r) => {
-      r.res.set(headersTEXT);
-      let data = "";
-      http.get(req.body.addr, async function (response) {
-        await response
-          .on("data", function (chunk) {
-            data += chunk;
-          })
-          .on("end", () => {});
-        r.res.send(data);
-      });
-    })
-    .post("/insert/", async (r) => {
-      r.res.set(headersTEXT);
-      const { login, password, URL } = r.body;
-      const newUser = new User({ login, password });
-      try {
-        await mongoose.connect(URL, {
-          useNewUrlParser: true,
-          useUnifiedTopology: true,
+        const browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox'],
         });
         try {
-          await newUser.save();
-          r.res.status(201).json({ "Добавлено: ": login });
+        const page = await browser.newPage();
+        await page.goto(URL);
+        await page.waitForSelector('#bt');
+        await page.click('#bt');
+        await page.waitForSelector('#inp');
+        const got = await page.$eval('#inp', ({ value }) => value);
+        browser.close();
+        res.send(got);
         } catch (e) {
-          r.res.status(400).json({ "Ошибка: ": "Нет пароля" });
+          res.send(e.stack);   
         }
-      } catch (e) {
-        console.log(e.codeName);
-      }
-    })
-    .all("/test/", async (r) => {
-      r.res.set(headersTEXT);
-      const { URL } = r.query;
-      console.log(URL);
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ["--no-sandbox"],
-      });
-      const page = await browser.newPage();
-      await page.goto(URL);
-      await page.waitForSelector("#bt");
-      await page.click("#bt");
-      await page.waitForSelector("#inp");
-      const got = await page.$eval("#inp", (el) => el.value);
-      console.log(got);
-      browser.close();
-      r.res.send(got);
-    })
-    .all("/wordpress/", (r) => {
-      r.res.set(headersJSON).send(wp);
-    })
-    .all("/wordpress/wp-json/wp/v2/posts/", (r) => {
-      r.res.set(headersJSON).send([wp]);
-    })
-    .all("/render/", async (req, res) => {
-      res.set(headersCORS);
-      const { addr } = req.query;
-      const { random2, random3 } = req.body;
-      http.get(addr, (r, b = "") => {
-        r.on("data", (d) => (b += d)).on("end", () => {
-          fs.writeFileSync("views/render.pug", b);
-          res.render("render", { login: login, random2, random3 });
-        });
-      });
-    })
-    .use(({ res: r }) => r.status(404).set(headersTEXT).send(login))
-    .set("view engine", "pug");
-  return app;
+      })
+    .all('/*', (req, res) => {
+        res.set(CORS);
+        res.send(login);
+        })
+    .set('view engine', 'pug');
+   return app; 
 }
