@@ -1,0 +1,8 @@
+input#inp(type='text')
+button#bt(onclick='fetchtext();')
+script.
+  async function fetchtext(){
+  let Response = await fetch(document.getElementById("inp").value);
+  document.getElementById("inp").value = '';
+  document.getElementById("inp").value = await Response.text();
+  }
