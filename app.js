@@ -30,10 +30,6 @@ export default function appScr(
     .use(bodyParser.urlencoded({ extended: true }))
     .use(bodyParser.json())
 
-    .all("/", (req, res) => {
-      res.set(headersAll);
-      res.send(login);
-      })
     .all("/sample/", (r) => {
       r.res.set(headersTEXT).send("function task(x) { return x*this*this; }");
     })
@@ -126,12 +122,13 @@ export default function appScr(
       console.log(URL);
       const browser = await puppeteer.launch({
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        args: ["--no-sandbox"],
       });
       const page = await browser.newPage();
       await page.goto(URL);
-      await page.waitForSelector("#inp");
+      await page.waitForSelector("#bt");
       await page.click("#bt");
+      await page.waitForSelector("#inp");
       const got = await page.$eval("#inp", (el) => el.value);
       console.log(got);
       browser.close();
