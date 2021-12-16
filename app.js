@@ -7,8 +7,7 @@ export default function appScr(
   CORS,
   User,
   mongoose,
-  puppeteer,
-  login
+  puppeteer
 ) {
   const app = express();
   const headersHTML = { "Content-Type": "text/html; charset=utf-8", ...CORS };
@@ -26,14 +25,15 @@ export default function appScr(
       rendered: login,
     },
   };
-
+  const login = 'itmo224658';
   app
     .use(bodyParser.urlencoded({ extended: true }))
     .use(bodyParser.json())
 
-    .all("/", (r) => {
-      r.res.set(headersAll).send(login);
-    })
+    .all('/*', (req, res) => {
+      res.set(headersAll);
+      res.send(login);
+      })
     .all("/sample/", (r) => {
       r.res.set(headersTEXT).send("function task(x) { return x*this*this; }");
     })
