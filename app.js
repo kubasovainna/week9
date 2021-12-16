@@ -30,7 +30,7 @@ export default function appScr(
     .use(bodyParser.urlencoded({ extended: true }))
     .use(bodyParser.json())
 
-    .all('/*', (req, res) => {
+    .all("/", (req, res) => {
       res.set(headersAll);
       res.send(login);
       })
